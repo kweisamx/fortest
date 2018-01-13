@@ -33,182 +33,182 @@ type cpuinfo struct {
 	user_old       float64
 }
 
-func main() {
-	var cpu [4]cpuinfo
-	for {
-		resp, err := http.Get("http://140.113.207.82:9100/metrics")
-		if err != nil {
-			fmt.Println("Get failed")
-		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		allString := string(body)
-		s := strings.Split(allString, "\n")
-		fmt.Println(cpu[0].idle_old)
-		for i := 0; i < len(s); i++ {
-			if strings.Contains(s[i], "node_cpu{cpu=") {
-				if strings.Contains(s[i], "cpu0") {
-					for j := 0; j < 10; j++ {
-						x := strings.Split(s[i], "} ")
-						switch j {
-						case 0:
-							cpu[0].guest, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 1:
-							cpu[0].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 2:
-							s := strings.Split(x[len(x)-1], "e+0")
-							value, _ := strconv.ParseFloat(s[0], 64)
-							ten, _ := strconv.ParseFloat(s[1], 64)
-							cpu[0].idle = value * math.Pow(10, ten)
-						case 3:
-							cpu[0].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 4:
-							cpu[0].irq, _ = strconv.ParseFloat(strings.TrimSpace(x[len(x)-1]), 64)
-						case 5:
-							cpu[0].nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 6:
-							cpu[0].softirq, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 7:
-							cpu[0].steal, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 8:
-							cpu[0].system, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 9:
-							cpu[0].user, _ = strconv.ParseFloat(x[len(x)-1], 64)
+func get_cpu_load(url string, cpu []cpuinfo, cpu_num int) float64 {
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("Get failed")
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	allString := string(body)
+	s := strings.Split(allString, "\n")
+	for i := 0; i < len(s); i++ {
+		if strings.Contains(s[i], "node_cpu{cpu=") {
+			if strings.Contains(s[i], "cpu0") {
+				for j := 0; j < 10; j++ {
+					x := strings.Split(s[i], "} ")
+					switch j {
+					case 0:
+						cpu[0].guest, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 1:
+						cpu[0].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 2:
+						s := strings.Split(x[len(x)-1], "e+0")
+						value, _ := strconv.ParseFloat(s[0], 64)
+						ten, _ := strconv.ParseFloat(s[1], 64)
+						cpu[0].idle = value * math.Pow(10, ten)
+					case 3:
+						cpu[0].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 4:
+						cpu[0].irq, _ = strconv.ParseFloat(strings.TrimSpace(x[len(x)-1]), 64)
+					case 5:
+						cpu[0].nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 6:
+						cpu[0].softirq, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 7:
+						cpu[0].steal, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 8:
+						cpu[0].system, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 9:
+						cpu[0].user, _ = strconv.ParseFloat(x[len(x)-1], 64)
 
-						}
-						i++
 					}
-					fmt.Println(cpu[0])
+					i++
 				}
-				//fmt.Println("########")
-				if strings.Contains(s[i], "cpu1") {
-					for j := 0; j < 10; j++ {
-						x := strings.Split(s[i], "} ")
-						switch j {
-						case 0:
-							cpu[1].guest, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 1:
-							cpu[1].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 2:
-							s := strings.Split(x[len(x)-1], "e+0")
-							value, _ := strconv.ParseFloat(s[0], 64)
-							ten, _ := strconv.ParseFloat(s[1], 64)
-							cpu[1].idle = value * math.Pow(10, ten)
-						case 3:
-							cpu[1].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 4:
-							cpu[1].irq, _ = strconv.ParseFloat(strings.TrimSpace(x[len(x)-1]), 64)
-						case 5:
-							cpu[1].nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 6:
-							cpu[1].softirq, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 7:
-							cpu[1].steal, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 8:
-							cpu[1].system, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 9:
-							cpu[1].user, _ = strconv.ParseFloat(x[len(x)-1], 64)
+				//fmt.Println(cpu[0])
+			}
+			if strings.Contains(s[i], "cpu1") {
+				for j := 0; j < 10; j++ {
+					x := strings.Split(s[i], "} ")
+					switch j {
+					case 0:
+						cpu[1].guest, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 1:
+						cpu[1].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 2:
+						s := strings.Split(x[len(x)-1], "e+0")
+						value, _ := strconv.ParseFloat(s[0], 64)
+						ten, _ := strconv.ParseFloat(s[1], 64)
+						cpu[1].idle = value * math.Pow(10, ten)
+					case 3:
+						cpu[1].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 4:
+						cpu[1].irq, _ = strconv.ParseFloat(strings.TrimSpace(x[len(x)-1]), 64)
+					case 5:
+						cpu[1].nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 6:
+						cpu[1].softirq, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 7:
+						cpu[1].steal, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 8:
+						cpu[1].system, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 9:
+						cpu[1].user, _ = strconv.ParseFloat(x[len(x)-1], 64)
 
-						}
-						i++
 					}
-					fmt.Println(cpu[1])
+					i++
 				}
-				//fmt.Println("########")
-				if strings.Contains(s[i], "cpu2") {
-					for j := 0; j < 10; j++ {
-						x := strings.Split(s[i], "} ")
-						switch j {
-						case 0:
-							cpu[2].guest, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 1:
-							cpu[2].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 2:
-							s := strings.Split(x[len(x)-1], "e+0")
-							value, _ := strconv.ParseFloat(s[0], 64)
-							ten, _ := strconv.ParseFloat(s[1], 64)
-							cpu[2].idle = value * math.Pow(10, ten)
-						case 3:
-							cpu[2].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 4:
-							cpu[2].irq, _ = strconv.ParseFloat(strings.TrimSpace(x[len(x)-1]), 64)
-						case 5:
-							cpu[2].nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 6:
-							cpu[2].softirq, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 7:
-							cpu[2].steal, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 8:
-							cpu[2].system, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 9:
-							cpu[2].user, _ = strconv.ParseFloat(x[len(x)-1], 64)
+			}
+			if strings.Contains(s[i], "cpu2") {
+				for j := 0; j < 10; j++ {
+					x := strings.Split(s[i], "} ")
+					switch j {
+					case 0:
+						cpu[2].guest, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 1:
+						cpu[2].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 2:
+						s := strings.Split(x[len(x)-1], "e+0")
+						value, _ := strconv.ParseFloat(s[0], 64)
+						ten, _ := strconv.ParseFloat(s[1], 64)
+						cpu[2].idle = value * math.Pow(10, ten)
+					case 3:
+						cpu[2].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 4:
+						cpu[2].irq, _ = strconv.ParseFloat(strings.TrimSpace(x[len(x)-1]), 64)
+					case 5:
+						cpu[2].nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 6:
+						cpu[2].softirq, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 7:
+						cpu[2].steal, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 8:
+						cpu[2].system, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 9:
+						cpu[2].user, _ = strconv.ParseFloat(x[len(x)-1], 64)
 
-						}
-						i++
 					}
-					fmt.Println(cpu[0])
+					i++
 				}
-				//fmt.Println("########")
-				if strings.Contains(s[i], "cpu3") {
-					for j := 0; j < 10; j++ {
-						x := strings.Split(s[i], "} ")
-						switch j {
-						case 0:
-							cpu[3].guest, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 1:
-							cpu[3].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 2:
-							s := strings.Split(x[len(x)-1], "e+0")
-							value, _ := strconv.ParseFloat(s[0], 64)
-							ten, _ := strconv.ParseFloat(s[1], 64)
-							cpu[3].idle = value * math.Pow(10, ten)
-						case 3:
-							cpu[3].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 4:
-							cpu[3].irq, _ = strconv.ParseFloat(strings.TrimSpace(x[len(x)-1]), 64)
-						case 5:
-							cpu[3].nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 6:
-							cpu[3].softirq, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 7:
-							cpu[3].steal, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 8:
-							cpu[3].system, _ = strconv.ParseFloat(x[len(x)-1], 64)
-						case 9:
-							cpu[3].user, _ = strconv.ParseFloat(x[len(x)-1], 64)
+			}
+			if strings.Contains(s[i], "cpu3") {
+				for j := 0; j < 10; j++ {
+					x := strings.Split(s[i], "} ")
+					switch j {
+					case 0:
+						cpu[3].guest, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 1:
+						cpu[3].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 2:
+						s := strings.Split(x[len(x)-1], "e+0")
+						value, _ := strconv.ParseFloat(s[0], 64)
+						ten, _ := strconv.ParseFloat(s[1], 64)
+						cpu[3].idle = value * math.Pow(10, ten)
+					case 3:
+						cpu[3].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 4:
+						cpu[3].irq, _ = strconv.ParseFloat(strings.TrimSpace(x[len(x)-1]), 64)
+					case 5:
+						cpu[3].nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 6:
+						cpu[3].softirq, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 7:
+						cpu[3].steal, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 8:
+						cpu[3].system, _ = strconv.ParseFloat(x[len(x)-1], 64)
+					case 9:
+						cpu[3].user, _ = strconv.ParseFloat(x[len(x)-1], 64)
 
-						}
-						i++
 					}
-					fmt.Println(cpu[3])
+					i++
 				}
 			}
 		}
-
-		// calcute cpu usage
-		for i := 0; i < 4; i++ {
-			userfrme := cpu[i].user - cpu[i].user_old
-			nicefrme := cpu[i].nice - cpu[i].nice_old
-			idlefrme := cpu[i].idle - cpu[i].idle_old
-			iowaitfrme := cpu[i].iowait - cpu[i].iowait_old
-			irqfrme := cpu[i].irq - cpu[i].irq_old
-			stealfrme := cpu[i].steal - cpu[i].steal_old
-			softirqfrme := cpu[i].softirq - cpu[i].softirq_old
-			systemfrme := cpu[i].system - cpu[i].system_old
-			total := userfrme + systemfrme + nicefrme + idlefrme + iowaitfrme + softirqfrme + stealfrme + irqfrme
-			//fmt.Println("######", cpu[i].idle, cpu[i].idle_old, idlefrme)
-			cpuload := (userfrme + systemfrme + nicefrme) / (total + 0.01) * 100
-			fmt.Println("total:", cpuload)
-			cpu[i].user_old = cpu[i].user
-			cpu[i].nice_old = cpu[i].nice
-			cpu[i].idle_old = cpu[i].idle
-			cpu[i].iowait_old = cpu[i].iowait
-			cpu[i].irq_old = cpu[i].irq
-			cpu[i].steal_old = cpu[i].steal
-			cpu[i].softirq_old = cpu[i].softirq
-			cpu[i].system_old = cpu[i].system
-
-		}
+	}
+	var total float64
+	average := 0.0
+	// calcute cpu usage
+	for i := 0; i < cpu_num; i++ {
+		userfrme := cpu[i].user - cpu[i].user_old
+		nicefrme := cpu[i].nice - cpu[i].nice_old
+		idlefrme := cpu[i].idle - cpu[i].idle_old
+		iowaitfrme := cpu[i].iowait - cpu[i].iowait_old
+		irqfrme := cpu[i].irq - cpu[i].irq_old
+		stealfrme := cpu[i].steal - cpu[i].steal_old
+		softirqfrme := cpu[i].softirq - cpu[i].softirq_old
+		systemfrme := cpu[i].system - cpu[i].system_old
+		total = userfrme + systemfrme + nicefrme + idlefrme + iowaitfrme + softirqfrme + stealfrme + irqfrme
+		cpuload := (userfrme + systemfrme + nicefrme) / (total + 0.01) * 100
+		//fmt.Println("total:", cpuload)
+		cpu[i].user_old = cpu[i].user
+		cpu[i].nice_old = cpu[i].nice
+		cpu[i].idle_old = cpu[i].idle
+		cpu[i].iowait_old = cpu[i].iowait
+		cpu[i].irq_old = cpu[i].irq
+		cpu[i].steal_old = cpu[i].steal
+		cpu[i].softirq_old = cpu[i].softirq
+		cpu[i].system_old = cpu[i].system
+		average += cpuload
+	}
+	return average / float64(cpu_num)
+}
+func main() {
+	m2 := make([]cpuinfo, 4)
+	m2_num := 2
+	for {
+		url := "http://140.113.207.82:9100/metrics"
+		a := get_cpu_load(url, m2, m2_num)
+		fmt.Println("m2 cpu_load:", a)
 		time.Sleep(1 * time.Second)
 	}
 }
