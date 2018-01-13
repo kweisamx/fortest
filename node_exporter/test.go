@@ -3,9 +3,7 @@ package main
 import "fmt"
 import "strconv"
 
+func main() {
 
-
-func main(){
-
-    fmt.Println(strconv.ParseFloat("  1230.78 ",64))
+	fmt.Println(strconv.ParseFloat("  1230.78 ", 64))
 }
