@@ -205,10 +205,15 @@ func get_cpu_load(url string, cpu []cpuinfo, cpu_num int) float64 {
 func main() {
 	m2 := make([]cpuinfo, 4)
 	m2_num := 2
+	master := make([]cpuinfo, 4)
+	master_num := 4
+	url_m2 := "http://140.113.207.82:9100/metrics"
+	url_master := "http://140.113.207.84:9100/metrics"
 	for {
-		url := "http://140.113.207.82:9100/metrics"
-		a := get_cpu_load(url, m2, m2_num)
+		a := get_cpu_load(url_m2, m2, m2_num)
 		fmt.Println("m2 cpu_load:", a)
-		time.Sleep(1 * time.Second)
+		b := get_cpu_load(url_master, master, master_num)
+		fmt.Println("master cpu_load:", b)
+		time.Sleep(2 * time.Second)
 	}
 }
