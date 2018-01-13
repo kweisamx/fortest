@@ -32,6 +32,12 @@ type cpuinfo struct {
 	system_old     float64
 	user_old       float64
 }
+type meminfo struct {
+	memtotal float64
+	memfree  float64
+	membuf   float64
+	memcah   float64
+}
 
 func get_cpu_load(url string, cpu []cpuinfo, cpu_num int) float64 {
 	resp, err := http.Get(url)
@@ -202,17 +208,64 @@ func get_cpu_load(url string, cpu []cpuinfo, cpu_num int) float64 {
 	}
 	return average / float64(cpu_num)
 }
+func get_mem_load(url string, mem meminfo)float64 {
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("Get failed")
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	allString := string(body)
+	s := strings.Split(allString, "\n")
+	for i := 0; i < len(s); i++ {
+		if strings.Contains(s[i], "node_memory_MemTotal") && !strings.Contains(s[i],"#") {
+			fmt.Println(s[i])
+            x := strings.Split(s[i]," ")
+            a := strings.Split(x[len(x)-1], "e+0")
+            value, _ := strconv.ParseFloat(a[0], 64)
+            ten, _ := strconv.ParseFloat(a[1], 64)
+            mem.memtotal = value * math.Pow(10, ten)
+		}
+		if strings.Contains(s[i], "node_memory_MemFree") && !strings.Contains(s[i],"#") {
+			fmt.Println(s[i])
+            x := strings.Split(s[i]," ")
+            a := strings.Split(x[len(x)-1], "e+0")
+            value, _ := strconv.ParseFloat(a[0], 64)
+            ten, _ := strconv.ParseFloat(a[1], 64)
+            mem.memfree = value * math.Pow(10, ten)
+		}
+		if strings.Contains(s[i], "node_memory_Cached") && !strings.Contains(s[i],"#") {
+			fmt.Println(s[i])
+            x := strings.Split(s[i]," ")
+            a := strings.Split(x[len(x)-1], "e+0")
+            value, _ := strconv.ParseFloat(a[0], 64)
+            ten, _ := strconv.ParseFloat(a[1], 64)
+            mem.memcah = value * math.Pow(10, ten)
+		}
+		if strings.Contains(s[i], "node_memory_Buffers") && !strings.Contains(s[i],"#") {
+			fmt.Println(s[i])
+            x := strings.Split(s[i]," ")
+            a := strings.Split(x[len(x)-1], "e+0")
+            value, _ := strconv.ParseFloat(a[0], 64)
+            ten, _ := strconv.ParseFloat(a[1], 64)
+            mem.membuf = value * math.Pow(10, ten)
+		}
+	}
+        return (mem.memtotal - mem.memfree - mem.membuf - mem.memcah) / mem.memtotal
+}
 func main() {
-	m2 := make([]cpuinfo, 4)
+	m2_cpu := make([]cpuinfo, 4)
 	m2_num := 2
-	master := make([]cpuinfo, 4)
+	var m2_mem meminfo
+	master_cpu := make([]cpuinfo, 4)
 	master_num := 4
 	url_m2 := "http://140.113.207.82:9100/metrics"
 	url_master := "http://140.113.207.84:9100/metrics"
 	for {
-		a := get_cpu_load(url_m2, m2, m2_num)
-		fmt.Println("m2 cpu_load:", a)
-		b := get_cpu_load(url_master, master, master_num)
+		a := get_cpu_load(url_m2, m2_cpu, m2_num)
+		a_mem := get_mem_load(url_m2, m2_mem)
+		fmt.Println("m2 cpu_load:", a, a_mem* 100)
+		b := get_cpu_load(url_master, master_cpu, master_num)
 		fmt.Println("master cpu_load:", b)
 		time.Sleep(2 * time.Second)
 	}
