@@ -249,22 +249,42 @@ func get_mem_load(url string, mem meminfo) float64 {
 	}
 	return (mem.memtotal - mem.memfree - mem.membuf - mem.memcah) / mem.memtotal
 }
+func warning(vaule float64, limit float64, element string, node string){
+    if (vaule > limit){
+        fmt.Println("warning, the",node," ", element, "is more than limit")
+    }else{
+        fmt.Println(node, element,"fine")
+    }
+
+}
 func main() {
 	m2_cpu := make([]cpuinfo, 4)
 	m2_num := 2
 	var m2_mem meminfo
+
 	master_cpu := make([]cpuinfo, 4)
 	master_num := 4
 	var master_mem meminfo
+
 	url_m2 := "http://140.113.207.82:9100/metrics"
 	url_master := "http://140.113.207.84:9100/metrics"
 	for {
+
 		a := get_cpu_load(url_m2, m2_cpu, m2_num)
 		a_mem := get_mem_load(url_m2, m2_mem)
-		fmt.Println("m2 cpu_load:", a, "m2_mem_load", a_mem*100)
+		//fmt.Println("m2 cpu_load:", a, "m2_mem_load", a_mem*100)
+
+        warning(a, 70, "cpu", "m2")
+        warning(a_mem, 70, "mem", "m2")
+
 		b := get_cpu_load(url_master, master_cpu, master_num)
 		b_mem := get_mem_load(url_master, master_mem)
-		fmt.Println("master cpu_load:", b, "master_mem_load", b_mem*100)
+
+        warning(b, 70, "cpu", "master")
+        warning(b_mem, 70, "mem", "master")
+
+		//fmt.Println("master cpu_load:", b, "master_mem_load", b_mem*100)
+        fmt.Println("ave_cpu", (a+b)/2, "ave_mem", (a_mem + b_mem)/2)
 		time.Sleep(2 * time.Second)
 	}
 }
