@@ -1,0 +1,3 @@
+export APISERVER=$(kubectl config view | grep server | cut -f 2- -d ":" | tr -d " ")
+export TOKEN=$(kubectl describe secret $(kubectl get secrets | grep default | cut -f1 -d ' ') | grep -E '^token' | cut -f2 -d':' | tr -d '      ')
+#curl $APISERVER --header "Authorization: Bearer $TOKEN" --cacert /etc/kubernetes/pki/ca.crt
