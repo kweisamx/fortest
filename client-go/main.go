@@ -66,14 +66,23 @@ func main() {
 		//pod := "stress-gin-866bc678bd-kqdt6"
 		//p, _ := clientset.CoreV1().Pods(namespace).Get(pod, metav1.GetOptions{})
 		p, _ := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
-        //rc :="stress-gin"
+        rc :="stress-gin"
         for _,e := range p.Items{
             fmt.Printf(e.Spec.NodeName + ": ")
             fmt.Println(e.ObjectMeta.Name)
             //fmt.Println(e.Status.ContainerStatuses[0].Name)
         }
-        r, _ := clientset.ExtensionsV1beta1().Deployments(namespace).List(metav1.ListOptions{})
-        fmt.Println("rc num is " , *(r.Items[0].Spec.Replicas))
+        //r, _ := clientset.ExtensionsV1beta1().Deployments(namespace).List(metav1.ListOptions{})
+        r, _ := clientset.ExtensionsV1beta1().Deployments(namespace).GetScale(rc,metav1.GetOptions{})
+        //fmt.Println("rc num is " , *(r.Items[0].Spec.Replicas))
+        fmt.Println("rc num is", r.Spec.Replicas)
+        r.Spec.Replicas = 1
+        _, err := clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
+
+        fmt.Println("rc num is", r.Spec.Replicas)
+
+        fmt.Println("err", err)
+
         /*
 		if errors.IsNotFound(err) {
 			fmt.Printf("Pod %s in namespace %s not found\n", pod, namespace)
