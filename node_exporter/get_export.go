@@ -8,6 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+    "flag"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    "k8s.io/client-go/kubernetes"
+    "k8s.io/client-go/tools/clientcmd"
+    "path/filepath"
+    "os"
 )
 
 type cpuinfo struct {
@@ -276,6 +282,13 @@ func warning(vaule float64, limit float64, element string, node string) {
 	}
 
 }
+
+func homeDir() string {
+    if h := os.Getenv("HOME"); h != "" {
+        return h
+    }
+    return os.Getenv("USERPROFILE") // windows
+}
 func main() {
 	m2_cpu := make([]cpuinfo, 4)
 	m2_num := 2
@@ -287,8 +300,43 @@ func main() {
 
 	url_m2 := "http://140.113.207.82:9100/metrics"
 	url_master := "http://140.113.207.84:9100/metrics"
-	for {
 
+
+    var kubeconfig *string
+    if home := homeDir(); home != "" {                                                                                
+        kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+    } else {
+        kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+    }
+    flag.Parse()
+
+    // use the current context in kubeconfig
+    config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+    if err != nil {
+        panic(err.Error())
+    }
+
+    // create the clientset
+    clientset, err := kubernetes.NewForConfig(config)
+    if err != nil {
+        panic(err.Error())
+    }
+
+    namespace := "default"
+
+    p, _ := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+    rc :="stress-gin"
+    for _,e := range p.Items{
+        fmt.Printf(e.Spec.NodeName + ": ")
+        fmt.Println(e.ObjectMeta.Name)
+    }
+    r, _ := clientset.ExtensionsV1beta1().Deployments(namespace).GetScale(rc,metav1.GetOptions{})
+    fmt.Println("rc num is", r.Spec.Replicas)
+    r.Spec.Replicas = 1
+    //_, err := clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
+
+	for {
+        fmt.Println("rc num is", r.Spec.Replicas)
 		a := get_cpu_load(url_m2, m2_cpu, m2_num)
 		a_mem := get_mem_load(url_m2, m2_mem)
 		//fmt.Println("m2 cpu_load:", a, "m2_mem_load", a_mem*100)
@@ -303,7 +351,12 @@ func main() {
 		warning(b_mem, 70, "mem", "master")
 
 		//fmt.Println("master cpu_load:", b, "master_mem_load", b_mem*100)
-		fmt.Println("ave_cpu", (a+b)/2, "ave_mem", (a_mem+b_mem)/2)
+        ave_cpu := (a+b)/2
+		fmt.Println("ave_cpu", ave_cpu, "ave_mem", (a_mem+b_mem)/2)
 		time.Sleep(2 * time.Second)
+        if ave_cpu > 40{
+            r.Spec.Replicas = 2
+            _, err = clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
+        }
 	}
 }
