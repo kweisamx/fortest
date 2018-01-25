@@ -59,10 +59,17 @@ func get_cpu_load(url string, cpu []cpuinfo, cpu_num int) float64 {
 					case 1:
 						cpu[0].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
 					case 2:
-						s := strings.Split(x[len(x)-1], "e+")
-						value, _ := strconv.ParseFloat(s[0], 64)
-						ten, _ := strconv.ParseFloat(s[1], 64)
-						cpu[0].idle = value * math.Pow(10, ten)
+						// beacause idle maybe be a big number
+						// so we need to set two case
+						// one has exportential num, other not
+						if strings.Contains(s[i], "e+") {
+							s := strings.Split(x[len(x)-1], "e+")
+							value, _ := strconv.ParseFloat(s[0], 64)
+							ten, _ := strconv.ParseFloat(s[1], 64)
+							cpu[0].idle = value * math.Pow(10, ten)
+						} else {
+							cpu[0].idle, _ = strconv.ParseFloat(x[len(x)-1], 64)
+						}
 					case 3:
 						cpu[0].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
 					case 4:
@@ -92,10 +99,14 @@ func get_cpu_load(url string, cpu []cpuinfo, cpu_num int) float64 {
 					case 1:
 						cpu[1].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
 					case 2:
-						s := strings.Split(x[len(x)-1], "e+")
-						value, _ := strconv.ParseFloat(s[0], 64)
-						ten, _ := strconv.ParseFloat(s[1], 64)
-						cpu[1].idle = value * math.Pow(10, ten)
+						if strings.Contains(s[i], "e+") {
+							s := strings.Split(x[len(x)-1], "e+")
+							value, _ := strconv.ParseFloat(s[0], 64)
+							ten, _ := strconv.ParseFloat(s[1], 64)
+							cpu[1].idle = value * math.Pow(10, ten)
+						} else {
+							cpu[1].idle, _ = strconv.ParseFloat(x[len(x)-1], 64)
+						}
 					case 3:
 						cpu[1].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
 					case 4:
@@ -124,10 +135,14 @@ func get_cpu_load(url string, cpu []cpuinfo, cpu_num int) float64 {
 					case 1:
 						cpu[2].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
 					case 2:
-						s := strings.Split(x[len(x)-1], "e+")
-						value, _ := strconv.ParseFloat(s[0], 64)
-						ten, _ := strconv.ParseFloat(s[1], 64)
-						cpu[2].idle = value * math.Pow(10, ten)
+						if strings.Contains(s[i], "e+") {
+							s := strings.Split(x[len(x)-1], "e+")
+							value, _ := strconv.ParseFloat(s[0], 64)
+							ten, _ := strconv.ParseFloat(s[1], 64)
+							cpu[2].idle = value * math.Pow(10, ten)
+						} else {
+							cpu[2].idle, _ = strconv.ParseFloat(x[len(x)-1], 64)
+						}
 					case 3:
 						cpu[2].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
 					case 4:
@@ -156,10 +171,14 @@ func get_cpu_load(url string, cpu []cpuinfo, cpu_num int) float64 {
 					case 1:
 						cpu[3].guest_nice, _ = strconv.ParseFloat(x[len(x)-1], 64)
 					case 2:
-						s := strings.Split(x[len(x)-1], "e+")
-						value, _ := strconv.ParseFloat(s[0], 64)
-						ten, _ := strconv.ParseFloat(s[1], 64)
-						cpu[3].idle = value * math.Pow(10, ten)
+						if strings.Contains(s[i], "e+") {
+							s := strings.Split(x[len(x)-1], "e+")
+							value, _ := strconv.ParseFloat(s[0], 64)
+							ten, _ := strconv.ParseFloat(s[1], 64)
+							cpu[3].idle = value * math.Pow(10, ten)
+						} else {
+							cpu[3].idle, _ = strconv.ParseFloat(x[len(x)-1], 64)
+						}
 					case 3:
 						cpu[3].iowait, _ = strconv.ParseFloat(x[len(x)-1], 64)
 					case 4:
@@ -249,12 +268,12 @@ func get_mem_load(url string, mem meminfo) float64 {
 	}
 	return (mem.memtotal - mem.memfree - mem.membuf - mem.memcah) / mem.memtotal
 }
-func warning(vaule float64, limit float64, element string, node string){
-    if (vaule > limit){
-        fmt.Println("warning, the",node," ", element, "is more than limit")
-    }else{
-        fmt.Println(node, element,"fine")
-    }
+func warning(vaule float64, limit float64, element string, node string) {
+	if vaule > limit {
+		fmt.Println("warning, the", node, " ", element, "is more than limit")
+	} else {
+		fmt.Println(node, element, "fine")
+	}
 
 }
 func main() {
@@ -274,17 +293,17 @@ func main() {
 		a_mem := get_mem_load(url_m2, m2_mem)
 		//fmt.Println("m2 cpu_load:", a, "m2_mem_load", a_mem*100)
 
-        warning(a, 70, "cpu", "m2")
-        warning(a_mem, 70, "mem", "m2")
+		warning(a, 70, "cpu", "m2")
+		warning(a_mem, 70, "mem", "m2")
 
 		b := get_cpu_load(url_master, master_cpu, master_num)
 		b_mem := get_mem_load(url_master, master_mem)
 
-        warning(b, 70, "cpu", "master")
-        warning(b_mem, 70, "mem", "master")
+		warning(b, 70, "cpu", "master")
+		warning(b_mem, 70, "mem", "master")
 
 		//fmt.Println("master cpu_load:", b, "master_mem_load", b_mem*100)
-        fmt.Println("ave_cpu", (a+b)/2, "ave_mem", (a_mem + b_mem)/2)
+		fmt.Println("ave_cpu", (a+b)/2, "ave_mem", (a_mem+b_mem)/2)
 		time.Sleep(2 * time.Second)
 	}
 }
