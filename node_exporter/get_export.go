@@ -274,11 +274,11 @@ func get_mem_load(url string, mem meminfo) float64 {
 	}
 	return (mem.memtotal - mem.memfree - mem.membuf - mem.memcah) / mem.memtotal
 }
-func warning(vaule float64, limit float64, element string, node string) {
-	if vaule > limit {
-		fmt.Println("warning, the", node, " ", element, "is more than limit")
+func warning(value float64, limit float64, element string, node string) {
+	if value > limit {
+		fmt.Println(node, element, value, ",more than limit")
 	} else {
-		fmt.Println(node, element, "fine")
+		fmt.Println(node, element, value, ",fine")
 	}
 
 }
@@ -290,20 +290,28 @@ func homeDir() string {
     return os.Getenv("USERPROFILE") // windows
 }
 func main() {
+    if len(os.Args) < 3 {
+        fmt.Println("please input 3 args, ex: /bin [replica name] [refresh time] [algo]")
+    }
+
+	url_m1 := "http://140.113.207.81:9100/metrics"
+	url_m2 := "http://140.113.207.82:9100/metrics"
+	url_m3 := "http://140.113.207.83:9100/metrics"
+
+	m1_cpu := make([]cpuinfo, 4)
+	m1_num := 4
+	var m1_mem meminfo
+
 	m2_cpu := make([]cpuinfo, 4)
-	m2_num := 2
+	m2_num := 4
 	var m2_mem meminfo
 
-	master_cpu := make([]cpuinfo, 4)
-	master_num := 4
-	var master_mem meminfo
-
-	url_m2 := "http://140.113.207.82:9100/metrics"
-	url_master := "http://140.113.207.84:9100/metrics"
-
+	m3_cpu := make([]cpuinfo, 4)
+	m3_num := 4
+	var m3_mem meminfo
 
     var kubeconfig *string
-    if home := homeDir(); home != "" {                                                                                
+    if home := homeDir(); home != "" {
         kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
     } else {
         kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
@@ -325,7 +333,7 @@ func main() {
     namespace := "default"
 
     p, _ := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
-    rc :="stress-gin"
+    rc := os.Args[1]
     for _,e := range p.Items{
         fmt.Printf(e.Spec.NodeName + ": ")
         fmt.Println(e.ObjectMeta.Name)
@@ -337,25 +345,36 @@ func main() {
 
 	for {
         fmt.Println("rc num is", r.Spec.Replicas)
-		a := get_cpu_load(url_m2, m2_cpu, m2_num)
-		a_mem := get_mem_load(url_m2, m2_mem)
-		//fmt.Println("m2 cpu_load:", a, "m2_mem_load", a_mem*100)
+		m1_cpu := get_cpu_load(url_m1, m1_cpu, m1_num)
+		m1_mem := get_mem_load(url_m1, m1_mem)
 
-		warning(a, 70, "cpu", "m2")
-		warning(a_mem, 70, "mem", "m2")
+		warning(m1_cpu, 70, "cpu", "m1")
+		warning(m1_mem, 70, "mem", "m1")
 
-		b := get_cpu_load(url_master, master_cpu, master_num)
-		b_mem := get_mem_load(url_master, master_mem)
+		m2_cpu := get_cpu_load(url_m2, m2_cpu, m2_num)
+		m2_mem := get_mem_load(url_m2, m2_mem)
 
-		warning(b, 70, "cpu", "master")
-		warning(b_mem, 70, "mem", "master")
+		warning(m2_cpu, 70, "cpu", "m2")
+		warning(m2_mem, 70, "mem", "m2")
+
+		m3_cpu := get_cpu_load(url_m3, m3_cpu, m3_num)
+		m3_mem := get_mem_load(url_m3, m3_mem)
+
+		warning(m3_cpu, 70, "cpu", "m3")
+		warning(m3_mem, 70, "mem", "m3")
 
 		//fmt.Println("master cpu_load:", b, "master_mem_load", b_mem*100)
-        ave_cpu := (a+b)/2
-		fmt.Println("ave_cpu", ave_cpu, "ave_mem", (a_mem+b_mem)/2)
-		time.Sleep(2 * time.Second)
-        if ave_cpu > 40{
+        avg_cpu := (m1_cpu + m2_cpu + m3_cpu)/3
+        avg_mem := (m1_mem + m2_mem + m3_mem)/3
+		fmt.Println("\n\n","avg_cpu", avg_cpu, "avg_mem", avg_mem)
+        refreshTime, _ := strconv.ParseFloat(os.Args[2], 64)
+		time.Sleep(time.Duration(int(refreshTime)) * time.Second)
+        if avg_cpu > 30{
             r.Spec.Replicas = 2
+            _, err = clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
+        }
+        if avg_cpu < 30{
+            r.Spec.Replicas = 1
             _, err = clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
         }
 	}
