@@ -289,6 +289,12 @@ func homeDir() string {
     }
     return os.Getenv("USERPROFILE") // windows
 }
+func algo(m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, avg_cpu float64, avg_mem float64)int32{
+    if m1_cpu > 50 || m2_cpu> 50 || m3_cpu >50{
+        return int32(avg_cpu/10)
+    }
+    return 1
+}
 func main() {
     if len(os.Args) < 3 {
         fmt.Println("please input 3 args, ex: /bin [replica name] [refresh time] [algo]")
@@ -338,12 +344,9 @@ func main() {
         fmt.Printf(e.Spec.NodeName + ": ")
         fmt.Println(e.ObjectMeta.Name)
     }
-    r, _ := clientset.ExtensionsV1beta1().Deployments(namespace).GetScale(rc,metav1.GetOptions{})
-    fmt.Println("rc num is", r.Spec.Replicas)
-    r.Spec.Replicas = 1
-    //_, err := clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
 
 	for {
+        r, _ := clientset.ExtensionsV1beta1().Deployments(namespace).GetScale(rc,metav1.GetOptions{})
         fmt.Println("rc num is", r.Spec.Replicas)
 		m1_cpu := get_cpu_load(url_m1, m1_cpu, m1_num)
 		m1_mem := get_mem_load(url_m1, m1_mem)
@@ -369,13 +372,9 @@ func main() {
 		fmt.Println("\n\n","avg_cpu", avg_cpu, "avg_mem", avg_mem)
         refreshTime, _ := strconv.ParseFloat(os.Args[2], 64)
 		time.Sleep(time.Duration(int(refreshTime)) * time.Second)
-        if avg_cpu > 30{
-            r.Spec.Replicas = 2
-            _, err = clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
-        }
-        if avg_cpu < 30{
-            r.Spec.Replicas = 1
-            _, err = clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
-        }
+        num:= algo(m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, avg_cpu, avg_mem)
+        r.Spec.Replicas = num
+        _, err = clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
+        fmt.Println(err)
 	}
 }
