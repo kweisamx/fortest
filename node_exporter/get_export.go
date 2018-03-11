@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
     "flag"
+    "encoding/csv"
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
     "k8s.io/client-go/kubernetes"
     "k8s.io/client-go/tools/clientcmd"
@@ -294,6 +295,27 @@ func algo(m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem
         return int32(avg_cpu/10)
     }
     return 1
+}
+func writecsv(filename string, m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, avg_cpu float64, avg_mem float64, podNum int){
+    file, err := os.Create(filename)
+    checkError("Cannot create file", err)
+    defer file.Close()
+    writer := csv.NewWriter(file)
+    defer writer.Flush()
+    data := make([] string ,9)
+    data[0] = m1_cpu
+    data[1] = m2_cpu
+    data[2] = m3_cpu
+    data[3] = m1_mem
+    data[4] = m2_mem
+    data[5] = m3_mem
+    data[6] = avg_cpu
+    data[7] = avg_mem
+    data[8] = podNum
+
+
+
+
 }
 func main() {
     if len(os.Args) < 3 {
