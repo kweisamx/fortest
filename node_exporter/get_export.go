@@ -1,20 +1,20 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"math"
 	"net/http"
+	"os"
+	"path/filepath"
+	"store"
 	"strconv"
 	"strings"
 	"time"
-    "flag"
-    "encoding/csv"
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "k8s.io/client-go/kubernetes"
-    "k8s.io/client-go/tools/clientcmd"
-    "path/filepath"
-    "os"
 )
 
 type cpuinfo struct {
@@ -285,43 +285,24 @@ func warning(value float64, limit float64, element string, node string) {
 }
 
 func homeDir() string {
-    if h := os.Getenv("HOME"); h != "" {
-        return h
-    }
-    return os.Getenv("USERPROFILE") // windows
+	if h := os.Getenv("HOME"); h != "" {
+		return h
+	}
+	return os.Getenv("USERPROFILE") // windows
 }
-func algo(m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, avg_cpu float64, avg_mem float64)int32{
-    if m1_cpu > 50 || m2_cpu> 50 || m3_cpu >50{
-        return int32(avg_cpu/10)
-    }
-    return 1
-}
-func writecsv(filename string, m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, avg_cpu float64, avg_mem float64, podNum int){
-    file, err := os.Create(filename)
-    checkError("Cannot create file", err)
-    defer file.Close()
-    writer := csv.NewWriter(file)
-    defer writer.Flush()
-    data := make([] string ,9)
-    data[0] = m1_cpu
-    data[1] = m2_cpu
-    data[2] = m3_cpu
-    data[3] = m1_mem
-    data[4] = m2_mem
-    data[5] = m3_mem
-    data[6] = avg_cpu
-    data[7] = avg_mem
-    data[8] = podNum
-
-
-
-
+func algo(m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, avg_cpu float64, avg_mem float64) int32 {
+	if m1_cpu > 50 || m2_cpu > 50 || m3_cpu > 50 {
+		return int32(avg_cpu / 10)
+	}
+	return 1
 }
 func main() {
-    if len(os.Args) < 3 {
-        fmt.Println("please input 3 args, ex: /bin [replica name] [refresh time] [algo]")
-    }
-
+	if len(os.Args) < 3 {
+		fmt.Println("please input 3 args, ex: /bin [replica name] [refresh time] [algo]")
+	}
+	storeTime, _ := strconv.Atoi(os.Args[2])
+	store.CsvInit(storeTime)
+	alltime := 0
 	url_m1 := "http://140.113.207.81:9100/metrics"
 	url_m2 := "http://140.113.207.82:9100/metrics"
 	url_m3 := "http://140.113.207.83:9100/metrics"
@@ -338,38 +319,38 @@ func main() {
 	m3_num := 4
 	var m3_mem meminfo
 
-    var kubeconfig *string
-    if home := homeDir(); home != "" {
-        kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-    } else {
-        kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-    }
-    flag.Parse()
+	var kubeconfig *string
+	if home := homeDir(); home != "" {
+		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+	} else {
+		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+	}
+	flag.Parse()
 
-    // use the current context in kubeconfig
-    config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
-    if err != nil {
-        panic(err.Error())
-    }
+	// use the current context in kubeconfig
+	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	if err != nil {
+		panic(err.Error())
+	}
 
-    // create the clientset
-    clientset, err := kubernetes.NewForConfig(config)
-    if err != nil {
-        panic(err.Error())
-    }
+	// create the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
 
-    namespace := "default"
+	namespace := "default"
 
-    p, _ := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
-    rc := os.Args[1]
-    for _,e := range p.Items{
-        fmt.Printf(e.Spec.NodeName + ": ")
-        fmt.Println(e.ObjectMeta.Name)
-    }
+	p, _ := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+	rc := os.Args[1]
+	for _, e := range p.Items {
+		fmt.Printf(e.Spec.NodeName + ": ")
+		fmt.Println(e.ObjectMeta.Name)
+	}
 
 	for {
-        r, _ := clientset.ExtensionsV1beta1().Deployments(namespace).GetScale(rc,metav1.GetOptions{})
-        fmt.Println("rc num is", r.Spec.Replicas)
+		r, _ := clientset.ExtensionsV1beta1().Deployments(namespace).GetScale(rc, metav1.GetOptions{})
+		fmt.Println("rc num is", r.Spec.Replicas)
 		m1_cpu := get_cpu_load(url_m1, m1_cpu, m1_num)
 		m1_mem := get_mem_load(url_m1, m1_mem)
 
@@ -389,14 +370,26 @@ func main() {
 		warning(m3_mem, 70, "mem", "m3")
 
 		//fmt.Println("master cpu_load:", b, "master_mem_load", b_mem*100)
-        avg_cpu := (m1_cpu + m2_cpu + m3_cpu)/3
-        avg_mem := (m1_mem + m2_mem + m3_mem)/3
-		fmt.Println("\n\n","avg_cpu", avg_cpu, "avg_mem", avg_mem)
-        refreshTime, _ := strconv.ParseFloat(os.Args[2], 64)
+		avg_cpu := (m1_cpu + m2_cpu + m3_cpu) / 3
+		avg_mem := (m1_mem + m2_mem + m3_mem) / 3
+		fmt.Println("\n\n", "avg_cpu", avg_cpu, "avg_mem", avg_mem)
+		refreshTime, _ := strconv.ParseFloat(os.Args[2], 64)
 		time.Sleep(time.Duration(int(refreshTime)) * time.Second)
-        num:= algo(m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, avg_cpu, avg_mem)
-        r.Spec.Replicas = num
-        _, err = clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc,r)
-        fmt.Println(err)
+		num := algo(m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, avg_cpu, avg_mem)
+		if alltime == 0 {
+			r.Spec.Replicas = 0
+		} else {
+			r.Spec.Replicas = num
+		}
+		alltime += storeTime
+		if alltime%20 == 0 {
+			store.CsvStore(alltime, int(num), m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, storeTime)
+		}
+		_, err = clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc, r)
+		fmt.Println(err)
+		if alltime == 600 {
+			fmt.Println("test finish")
+			os.Exit(0)
+		}
 	}
 }
