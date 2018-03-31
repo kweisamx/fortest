@@ -6,7 +6,7 @@ import (
 )
 
 func test() {
-	cmd := exec.Command("stress", "-c", "3", "-t", "15s")
+	cmd := exec.Command("stress", "-c", "3", "-m", "1", "--vm-bytes", "50M", "-t", "15s")
 	cmd.Run()
 }
 
