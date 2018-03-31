@@ -16,7 +16,7 @@ spec:
         spec:
             containers:
             - name: str-gin
-              image: kweisamx/gotest
+              image: kweisamx/gotest:2.0
               command: ["/root/gin-str"]
               ports: 
               - containerPort: 8888
