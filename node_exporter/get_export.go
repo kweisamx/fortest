@@ -273,7 +273,7 @@ func get_mem_load(url string, mem meminfo) float64 {
 			mem.membuf = value * math.Pow(10, ten)
 		}
 	}
-	return (mem.memtotal - mem.memfree - mem.membuf - mem.memcah) / mem.memtotal
+	return ((mem.memtotal - mem.memfree - mem.membuf - mem.memcah) / mem.memtotal) * 100
 }
 func warning(value float64, limit float64, element string, node string) {
 	if value > limit {
@@ -290,9 +290,12 @@ func homeDir() string {
 	}
 	return os.Getenv("USERPROFILE") // windows
 }
-func algo(m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, avg_cpu float64, avg_mem float64) int32 {
-	if m1_cpu > 50 || m2_cpu > 50 || m3_cpu > 50 {
-		return int32(avg_cpu / 10)
+func algo(m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, avg_cpu float64, avg_mem float64, a float64) int32 {
+	if m1_cpu > 50 || m2_cpu > 50 || m3_cpu > 50 || m1_mem > 30 || m2_mem > 30 || m3_mem > 30 {
+        if int32((avg_cpu*a + avg_mem*(1-a)) / 10) == 0{
+            return 1
+        }
+		return int32((avg_cpu*a + avg_mem*(1-a)) / 10)
 	}
 	return 1
 }
@@ -301,7 +304,8 @@ func main() {
 		fmt.Println("please input 3 args, ex: /bin [replica name] [refresh time] [algo]")
 	}
 	storeTime, _ := strconv.Atoi(os.Args[2])
-	store.CsvInit(storeTime)
+    a, _ := strconv.ParseFloat(os.Args[3], 64)
+	store.CsvInit(storeTime, int(a*10))
 	alltime := 0
 	url_m1 := "http://140.113.207.81:9100/metrics"
 	url_m2 := "http://140.113.207.82:9100/metrics"
@@ -318,6 +322,9 @@ func main() {
 	m3_cpu := make([]cpuinfo, 4)
 	m3_num := 4
 	var m3_mem meminfo
+
+    movingAvg := make([]int32 , 1)
+    var total int32
 
 	var kubeconfig *string
 	if home := homeDir(); home != "" {
@@ -374,19 +381,34 @@ func main() {
 		avg_mem := (m1_mem + m2_mem + m3_mem) / 3
 		fmt.Println("\n\n", "avg_cpu", avg_cpu, "avg_mem", avg_mem)
 		refreshTime, _ := strconv.ParseFloat(os.Args[2], 64)
-		time.Sleep(time.Duration(int(refreshTime)) * time.Second)
-		num := algo(m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, avg_cpu, avg_mem)
-		if alltime == 0 {
-			r.Spec.Replicas = 0
-		} else {
-			r.Spec.Replicas = num
-		}
-		alltime += storeTime
+		time.Sleep(time.Duration(int(1)) * time.Second)
+		num := algo(m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, avg_cpu, avg_mem, a)
+        
+        // add num to moving average array
+        movingAvg = movingAvg[1:]
+        movingAvg = append(movingAvg, num)
+        total = 0
+        // Calculate moving average 
+        for _, value:= range movingAvg{
+            total += value
+        }
+        if alltime%(int(refreshTime))==0{
+            // Set pod number
+            if alltime == 0 {
+                r.Spec.Replicas = 0
+            } else {
+                r.Spec.Replicas = total/1
+            }
+        }
+		alltime += 1
 		if alltime%20 == 0 {
-			store.CsvStore(alltime, int(num), m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, storeTime)
+			store.CsvStore(alltime, int(r.Spec.Replicas), m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, storeTime, int(a*10))
 		}
-		_, err = clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc, r)
-		fmt.Println(err)
+		_, err := clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc, r)
+        fmt.Println("Moving Average Queue", movingAvg)
+        fmt.Println("Alltime", alltime)
+        fmt.Println("Change num to", total/1)
+        fmt.Println(err)
 		if alltime == 600 {
 			fmt.Println("test finish")
 			os.Exit(0)

@@ -12,8 +12,8 @@ func FloatToString(input_num float64) string {
 	return strconv.FormatFloat(input_num, 'f', 6, 64)
 }
 
-func CsvInit(RefreshTime int) {
-	filename := fmt.Sprintf("%d_time.csv", RefreshTime)
+func CsvInit(RefreshTime int, a int) {
+	filename := fmt.Sprintf("%d_time_%d_a.csv", RefreshTime, a)
 	f, err := os.Create(filename)
 	if err != nil {
 		panic(err)
@@ -26,8 +26,8 @@ func CsvInit(RefreshTime int) {
 	w.Write([]string{"nowtime", "m1_cpu", "m2_cpu", "m3_cpu", "m1_mem", "m2_mem", "m3_mem", "pod", "refreshtime"})
 	w.Flush()
 }
-func CsvStore(nowtime int, pod int, m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, RefreshTime int) {
-	filename := fmt.Sprintf("%d_time.csv", RefreshTime)
+func CsvStore(nowtime int, pod int, m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, RefreshTime int, a int) {
+	filename := fmt.Sprintf("%d_time_%d_a.csv", RefreshTime, a)
 	fmt.Println(filename)
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, os.ModePerm)
 	if err != nil {
