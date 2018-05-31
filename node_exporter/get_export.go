@@ -17,6 +17,12 @@ import (
 	"time"
 )
 
+type NodeInfo struct {
+	CPUUsage    float64
+	MemoryUsage float64
+	PodNum      int
+}
+
 type cpuinfo struct {
 	guest          float64
 	guest_nice     float64
@@ -290,27 +296,49 @@ func homeDir() string {
 	}
 	return os.Getenv("USERPROFILE") // windows
 }
-func algo(m1_cpu float64, m2_cpu float64, m3_cpu float64, m1_mem float64, m2_mem float64, m3_mem float64, avg_cpu float64, avg_mem float64, a float64) int32 {
-	if m1_cpu > 50 || m2_cpu > 50 || m3_cpu > 50 || m1_mem > 30 || m2_mem > 30 || m3_mem > 30 {
-        if int32((avg_cpu*a + avg_mem*(1-a)) / 10) == 0{
-            return 1
-        }
+
+func algo(Node1 NodeInfo, Node2 NodeInfo, Node3 NodeInfo, a float64) int32 {
+	n1 := 0
+	n2 := 0
+	n3 := 0
+	if Node1.PodNum > 0 {
+		n1 = 1
+	}
+	if Node2.PodNum > 0 {
+		n2 = 1
+	}
+	if Node3.PodNum > 0 {
+		n3 = 1
+	}
+	if (n1 + n2 + n3) == 0 {
+		return 1
+	}
+	avg_cpu := (Node1.CPUUsage*float64(n1) + Node2.CPUUsage*float64(n2) + Node3.CPUUsage*float64(n3)) / float64(n1+n2+n3)
+	avg_mem := (Node1.MemoryUsage*float64(n1) + Node2.MemoryUsage*float64(n2) + Node3.MemoryUsage*float64(n3)) / float64(n1+n2+n3)
+
+	if Node1.CPUUsage > 50 || Node2.CPUUsage > 50 || Node1.CPUUsage > 50 || Node1.MemoryUsage > 30 || Node2.MemoryUsage > 30 || Node3.MemoryUsage > 30 {
+		if int32((avg_cpu*a+avg_mem*(1-a))/10) == 0 {
+			return 1
+		}
 		return int32((avg_cpu*a + avg_mem*(1-a)) / 10)
 	}
 	return 1
 }
 func main() {
 	if len(os.Args) < 3 {
-		fmt.Println("please input 3 args, ex: /bin [replica name] [refresh time] [algo]")
+		fmt.Println("please input 3 args, ex: /bin [replica name] [refresh time] [a vale]")
 	}
 	storeTime, _ := strconv.Atoi(os.Args[2])
-    a, _ := strconv.ParseFloat(os.Args[3], 64)
+	a, _ := strconv.ParseFloat(os.Args[3], 64)
 	store.CsvInit(storeTime, int(a*10))
 	alltime := 0
 	url_m1 := "http://140.113.207.81:9100/metrics"
 	url_m2 := "http://140.113.207.82:9100/metrics"
 	url_m3 := "http://140.113.207.83:9100/metrics"
 
+	Node1 := NodeInfo{CPUUsage: 0, MemoryUsage: 0, PodNum: 0}
+	Node2 := NodeInfo{CPUUsage: 0, MemoryUsage: 0, PodNum: 0}
+	Node3 := NodeInfo{CPUUsage: 0, MemoryUsage: 0, PodNum: 0}
 	m1_cpu := make([]cpuinfo, 4)
 	m1_num := 4
 	var m1_mem meminfo
@@ -323,8 +351,8 @@ func main() {
 	m3_num := 4
 	var m3_mem meminfo
 
-    movingAvg := make([]int32 , 1)
-    var total int32
+	movingAvg := make([]int32, 1)
+	var total int32
 
 	var kubeconfig *string
 	if home := homeDir(); home != "" {
@@ -348,67 +376,82 @@ func main() {
 
 	namespace := "default"
 
-	p, _ := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
 	rc := os.Args[1]
-	for _, e := range p.Items {
-		fmt.Printf(e.Spec.NodeName + ": ")
-		fmt.Println(e.ObjectMeta.Name)
-	}
 
 	for {
+		Node1.PodNum = 0
+		Node2.PodNum = 0
+		Node3.PodNum = 0
+		p, _ := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+		for _, e := range p.Items {
+			fmt.Printf(e.Spec.NodeName + ": ")
+			fmt.Println(e.ObjectMeta.Name)
+			if strings.Contains(e.ObjectMeta.Name, "stress-gin") {
+				if strings.Contains(e.Spec.NodeName, "1") {
+					Node1.PodNum += 1
+				} else if strings.Contains(e.Spec.NodeName, "2") {
+					Node2.PodNum += 1
+				} else {
+					Node3.PodNum += 1
+				}
+			}
+		}
+		fmt.Printf("node1: %d, node2: %d, node3: %d\n", Node1.PodNum, Node2.PodNum, Node3.PodNum)
 		r, _ := clientset.ExtensionsV1beta1().Deployments(namespace).GetScale(rc, metav1.GetOptions{})
 		fmt.Println("rc num is", r.Spec.Replicas)
-		m1_cpu := get_cpu_load(url_m1, m1_cpu, m1_num)
-		m1_mem := get_mem_load(url_m1, m1_mem)
+		Node1.CPUUsage = get_cpu_load(url_m1, m1_cpu, m1_num)
+		Node1.MemoryUsage = get_mem_load(url_m1, m1_mem)
 
-		warning(m1_cpu, 70, "cpu", "m1")
-		warning(m1_mem, 70, "mem", "m1")
+		warning(Node1.CPUUsage, 70, "cpu", "m1")
+		warning(Node1.MemoryUsage, 70, "mem", "m1")
 
-		m2_cpu := get_cpu_load(url_m2, m2_cpu, m2_num)
-		m2_mem := get_mem_load(url_m2, m2_mem)
+		Node2.CPUUsage = get_cpu_load(url_m2, m2_cpu, m2_num)
+		Node2.MemoryUsage = get_mem_load(url_m2, m2_mem)
 
-		warning(m2_cpu, 70, "cpu", "m2")
-		warning(m2_mem, 70, "mem", "m2")
+		warning(Node2.CPUUsage, 70, "cpu", "m2")
+		warning(Node2.MemoryUsage, 70, "mem", "m2")
 
-		m3_cpu := get_cpu_load(url_m3, m3_cpu, m3_num)
-		m3_mem := get_mem_load(url_m3, m3_mem)
+		Node3.CPUUsage = get_cpu_load(url_m3, m3_cpu, m3_num)
+		Node3.MemoryUsage = get_mem_load(url_m3, m3_mem)
 
-		warning(m3_cpu, 70, "cpu", "m3")
-		warning(m3_mem, 70, "mem", "m3")
+		warning(Node3.CPUUsage, 70, "cpu", "m3")
+		warning(Node3.MemoryUsage, 70, "mem", "m3")
 
-		//fmt.Println("master cpu_load:", b, "master_mem_load", b_mem*100)
-		avg_cpu := (m1_cpu + m2_cpu + m3_cpu) / 3
-		avg_mem := (m1_mem + m2_mem + m3_mem) / 3
+		avg_cpu := (Node1.CPUUsage + Node2.CPUUsage + Node3.CPUUsage) / 3
+		avg_mem := (Node1.MemoryUsage + Node2.MemoryUsage + Node3.MemoryUsage) / 3
 		fmt.Println("\n\n", "avg_cpu", avg_cpu, "avg_mem", avg_mem)
 		refreshTime, _ := strconv.ParseFloat(os.Args[2], 64)
+
 		time.Sleep(time.Duration(int(1)) * time.Second)
-		num := algo(m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, avg_cpu, avg_mem, a)
-        
-        // add num to moving average array
-        movingAvg = movingAvg[1:]
-        movingAvg = append(movingAvg, num)
-        total = 0
-        // Calculate moving average 
-        for _, value:= range movingAvg{
-            total += value
-        }
-        if alltime%(int(refreshTime))==0{
-            // Set pod number
-            if alltime == 0 {
-                r.Spec.Replicas = 0
-            } else {
-                r.Spec.Replicas = total/1
-            }
-        }
+
+		num := algo(Node1, Node2, Node3, a)
+
+		// add num to moving average array
+		//movingAvg = movingAvg[1:]
+		//movingAvg = append(movingAvg, num)
+		total = 0
+
+		// Calculate moving average
+		//for _, value:= range movingAvg{
+		//   total += value
+		//}
+		if alltime%(int(refreshTime)) == 0 {
+			// Set pod number
+			if alltime == 0 {
+				r.Spec.Replicas = 0
+			} else {
+				r.Spec.Replicas = num
+			}
+		}
 		alltime += 1
 		if alltime%20 == 0 {
-			store.CsvStore(alltime, int(r.Spec.Replicas), m1_cpu, m2_cpu, m3_cpu, m1_mem, m2_mem, m3_mem, storeTime, int(a*10))
+			store.CsvStore(alltime, int(r.Spec.Replicas), Node1.CPUUsage, Node2.CPUUsage, Node3.CPUUsage, Node1.MemoryUsage, Node2.MemoryUsage, Node3.MemoryUsage, storeTime, int(a*10))
 		}
 		_, err := clientset.ExtensionsV1beta1().Deployments(namespace).UpdateScale(rc, r)
-        fmt.Println("Moving Average Queue", movingAvg)
-        fmt.Println("Alltime", alltime)
-        fmt.Println("Change num to", total/1)
-        fmt.Println(err)
+		fmt.Println("Moving Average Queue", movingAvg)
+		fmt.Println("Alltime", alltime)
+		fmt.Println("Change num to", total/1)
+		fmt.Println(err)
 		if alltime == 600 {
 			fmt.Println("test finish")
 			os.Exit(0)
