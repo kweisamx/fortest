@@ -317,7 +317,7 @@ func algo(Node1 NodeInfo, Node2 NodeInfo, Node3 NodeInfo, a float64) int32 {
 	avg_mem := (Node1.MemoryUsage*float64(n1) + Node2.MemoryUsage*float64(n2) + Node3.MemoryUsage*float64(n3)) / float64(n1+n2+n3)
 
 	if Node1.CPUUsage > 50 || Node2.CPUUsage > 50 || Node1.CPUUsage > 50 || Node1.MemoryUsage > 30 || Node2.MemoryUsage > 30 || Node3.MemoryUsage > 30 {
-		if int32((avg_cpu*a+avg_mem*(1-a))/10) == 0 {
+		if int32((avg_cpu*a+avg_mem*(1-a))/10) < 1 {
 			return 1
 		}
 		return int32((avg_cpu*a + avg_mem*(1-a)) / 10)
