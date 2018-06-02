@@ -1,4 +1,4 @@
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
     name: stress-gin
@@ -16,10 +16,13 @@ spec:
         spec:
             containers:
             - name: str-gin
-              image: kweisamx/gotest:2.0
+              image: kweisamx/gotest:4.0
               command: ["/root/gin-str"]
               ports: 
               - containerPort: 8888
+              resources:
+                requests:
+                  cpu: "20m"
 ---
 
 apiVersion: v1
