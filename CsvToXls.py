@@ -35,7 +35,7 @@ def main():
             store_path = '{}/{}/{}.xlsx'.format(output_dir, path, f[:-4])
             print(store_path)
             read_path = '{}/{}'.format(path, f)
-            workbook = Workbook(store_path)
+            workbook = Workbook(store_path, {'strings_to_numbers': True})
             worksheet = workbook.add_worksheet()
             with open(read_path, 'rt', encoding='utf8') as f:
                 reader = csv.reader(f)
@@ -43,15 +43,5 @@ def main():
                     for c, col in enumerate(row):
                         worksheet.write(r, c, col)
             workbook.close()
-
-    #for csvfile in glob.glob(os.path.join(, '*.csv')):
-    #    workbook = Workbook(csvfile[:-4] + '.xlsx')
-    #    worksheet = workbook.add_worksheet()
-    #    with open(csvfile, 'rt', encoding='utf8') as f:
-    #        reader = csv.reader(f)
-    #        for r, row in enumerate(reader):
-    #            for c, col in enumerate(row):
-    #                worksheet.write(r, c, col)
-    #    workbook.close()
 if __name__ == '__main__':
     main()
